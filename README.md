@@ -1,28 +1,38 @@
-# 🏥 Medical Assistant Chatbot API
+# 🏥 Medical Assistant Chatbot API — Dr. Aria
 
-**FastAPI + LangChain + Ollama + PostgreSQL**
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat&logo=python&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat&logo=postgresql&logoColor=white)
+![LangChain](https://img.shields.io/badge/LangChain-000000?style=flat&logo=chainlink&logoColor=white)
 
-> Meet **Dr. Aria** — a warm, friendly AI medical assistant who remembers every patient's conversation history.
+> Meet **Dr. Aria** — a warm, friendly AI medical assistant who remembers every patient's full conversation history.
+
+> ⚠️ *For informational purposes only. Always consult a real doctor for medical decisions.*
 
 ---
 
 ## ⚙️ Setup with `uv`
 
 ```bash
-# 1. Create and sync environment
+# 1. Clone the repository
+git clone https://github.com/YourUsername/medical-chatbot.git
+cd medical-chatbot
+
+# 2. Install dependencies
 uv sync
 
-# 2. Configure your .env
+# 3. Configure environment variables
+cp .env.example .env
 # Edit .env and set your PostgreSQL credentials
 
-# 3. Create the PostgreSQL database
+# 4. Create the PostgreSQL database
 psql -U postgres -c "CREATE DATABASE medical_chatbot;"
 
-# 4. Run the server
+# 5. Run the server
 uv run uvicorn main:app --reload --port 8000
 ```
 
-Open **http://localhost:8000/docs** to see the full interactive Swagger UI.
+Open **http://localhost:8000/docs** for the full interactive Swagger UI.
 
 ---
 
@@ -34,12 +44,12 @@ Open **http://localhost:8000/docs** to see the full interactive Swagger UI.
 | `POST` | `/users` | Register a new patient |
 | `GET` | `/users` | List all patients |
 | `GET` | `/users/{user_id}` | Get a patient's profile |
-| `DELETE` | `/users/{user_id}` | Delete patient + all history |
+| `DELETE` | `/users/{user_id}` | Delete patient and all history |
 
 ### 💬 Chat
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/chat` | Chat with Dr. Aria (history auto-loaded) |
+| `POST` | `/chat` | Chat with Dr. Aria (history auto-loaded from PostgreSQL) |
 
 ### 📜 History
 | Method | Endpoint | Description |
@@ -47,7 +57,7 @@ Open **http://localhost:8000/docs** to see the full interactive Swagger UI.
 | `GET` | `/users/{user_id}/history` | Get full conversation history |
 | `DELETE` | `/users/{user_id}/history` | Clear history (keep account) |
 
-### 🧠 Smart Endpoints
+### 🧠 Smart Analysis
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/users/{user_id}/summarize` | Summarize the medical conversation |
@@ -56,29 +66,67 @@ Open **http://localhost:8000/docs** to see the full interactive Swagger UI.
 
 ---
 
-## 🔄 Typical Flow
+## 🔄 Example Usage
 
+### 1. Register a Patient
+```json
+// POST /users
+{
+  "name": "zainab",
+  "email": "zainab@email.com",
+  "age": 28
+}
+
+// Response 201
+{
+  "id": 3,
+  "name": "zainab",
+  "email": "zainab@email.com",
+  "age": 28,
+  "created_at": "2026-06-17T10:00:00Z"
+}
 ```
-1. Register → POST /users
-             {"name": "Eman", "email": "eman@email.com", "age": 28}
-             ← gets user_id = 1
 
-2. Chat     → POST /chat
-             {"user_id": 1, "message": "I have a headache and fever since 2 days"}
-             ← Dr. Aria responds warmly with advice
+### 2. Chat with Dr. Aria
+```json
+// POST /chat
+{
+  "user_id": 1,
+  "message": "I have a headache and fever since 2 days"
+}
 
-3. Continue → POST /chat
-             {"user_id": 1, "message": "The fever is around 101°F"}
-             ← Dr. Aria remembers the headache from before!
+// Response 200
+{
+  "user_id": 1,
+  "message": "I have a headache and fever since 2 days",
+  "response": "I'm sorry to hear that! A headache with fever lasting 2 days could be due to a viral infection. Please rest, stay hydrated, and monitor your temperature. Are you experiencing any other symptoms like body aches or sore throat?",
+  "turn": 1
+}
+```
 
-4. Summary  → POST /users/1/summarize
-             ← Bullet-point summary of everything discussed
+### 3. Extract Symptoms
+```json
+// GET /users/1/symptoms
 
-5. Symptoms → GET /users/1/symptoms
-             ← Clean list: headache, fever (101°F)
+// Response 200
+{
+  "user_id": 3,
+  "username": "zainab",
+  "symptoms_mentioned": "• Headache\n• Fever (since 2 days)"
+}
+```
 
-6. Analysis → POST /users/1/second-opinion
-             ← Deeper analysis + when to see a real doctor
+### 4. Get Second Opinion
+```json
+// POST /users/1/second-opinion
+
+// Response 200
+{
+  "user_id": 3,
+  "username": "zainab",
+  "second_opinion": "Based on your symptoms...\n\n🔍 Possible conditions:\n- Viral fever\n- Flu\n\n🥗 Lifestyle suggestions:\n- Rest and hydrate\n- Light meals\n\n🚨 Go to ER if:\n- Fever crosses 103°F\n- Difficulty breathing",
+  "reminder": "This is AI-generated. Always consult a licensed doctor."
+}
 ```
 
 ---
@@ -87,11 +135,29 @@ Open **http://localhost:8000/docs** to see the full interactive Swagger UI.
 
 ```
 users
-  id, name, email, age, created_at
+  id          → Primary key
+  name        → Patient name
+  email       → Unique email
+  age         → Optional age
+  created_at  → Registration time
 
 messages
-  id, user_id (FK), role (human|ai), content, created_at
+  id          → Primary key
+  user_id     → Foreign key → users.id
+  role        → "human" or "ai"
+  content     → Message text
+  created_at  → Message time
 ```
+
+---
+
+## 🔧 Configure Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| DATABASE_URL | postgresql+psycopg2://postgres:yourpassword@localhost:5432/medical_chatbot | PostgreSQL connection |
+| OLLAMA_BASE_URL | http://your-ollama-server:11434 | Ollama server URL |
+| OLLAMA_MODEL | llama3.1:latest | Model to use |
 
 ---
 
