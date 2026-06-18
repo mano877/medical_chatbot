@@ -13,7 +13,7 @@ load_dotenv()
 # ─────────────────────────────────────────────
 class Settings(BaseSettings):
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:yourpassword@localhost:5432/medical_chatbot")
-    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://154.57.212.236:11434")
+    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "patste URL here")
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.1:latest")
 
 settings = Settings()
