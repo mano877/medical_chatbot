@@ -2,7 +2,7 @@ from langchain_ollama import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-from app.database import Message, settings
+from app.database.database import Message, settings
 
 # ─────────────────────────────────────────────
 #  LLM Setup

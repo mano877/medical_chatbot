@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import create_tables
+from app.database.database import create_tables
 from app.routers import users, chat, smart
+
 
 # ─────────────────────────────────────────────
 #  App
