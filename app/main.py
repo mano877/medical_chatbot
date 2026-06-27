@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database.database import create_tables
-from app.routers import users, chat, smart
+from app.routers import users, chat, smart, documents
 
 
 # ─────────────────────────────────────────────
@@ -39,6 +39,7 @@ def startup():
 app.include_router(users.router)
 app.include_router(chat.router)
 app.include_router(smart.router)
+app.include_router(documents.router)
 
 
 @app.get("/", tags=["Root"])

@@ -52,3 +52,26 @@ class HistoryResponse(BaseModel):
 class SummaryResponse(BaseModel):
     user_id: int
     summary: str
+
+
+# ─────────────────────────────────────────────
+#  Documents
+# ─────────────────────────────────────────────
+
+
+class DocumentOut(BaseModel):
+    doc_id: str
+    filename: str
+    uploaded_at: str
+
+
+class DocumentListResponse(BaseModel):
+    total: int
+    documents: list[DocumentOut]
+
+
+class DocumentUploadResponse(BaseModel):
+    doc_id: str
+    filename: str
+    chunks: int
+    message: str

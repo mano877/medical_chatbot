@@ -149,6 +149,31 @@ messages
   created_at  → Message time
 ```
 
+### 📄 Documents (RAG — Retrieval-Augmented Generation)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/documents/upload` | Upload a PDF (lab report, prescription, guideline) — gets indexed into ChromaDB |
+| `GET` | `/documents` | List all uploaded documents |
+| `DELETE` | `/documents/{id}` | Delete a document and its vector embeddings |
+
+> Dr. Aria automatically searches uploaded documents for relevant context when answering your questions.
+
+---
+
+## 🧠 RAG Architecture
+
+```
+Uploaded PDF  ──►  PyPDFLoader  ──►  Text Splitter  ──►  Ollama Embeddings ──►  ChromaDB
+                                                                               (chroma_db/)
+                                                                    
+User Question ──►  Similarity Search ──►  Relevant Chunks ──►  Context injected     
+                                                             into Dr. Aria's prompt
+```
+
+- **Vector DB:** ChromaDB (local, stored in `chroma_db/` folder)
+- **Embeddings:** Ollama `nomic-embed-text` via `http://154.57.212.236:11434`
+- **Chunking:** RecursiveCharacterTextSplitter (1000 chars, 200 overlap)
+
 ---
 
 ## 🔧 Configure Environment Variables

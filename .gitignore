@@ -2,3 +2,10 @@
 .venv
 __pycache__
 *.pyc
+
+# Uploaded PDF temp files
+uploads/
+
+# ChromaDB vector store (auto-generated binary data)
+chroma_db/*
+!chroma_db/.gitkeep

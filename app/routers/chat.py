@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.database.database import get_db, User, Message
 from app.database.schemas import ChatRequest, ChatResponse, MessageOut, HistoryResponse
 from app.services.ai_service import get_ai_response
+from app.services.rag_service import get_rag_context
 
 router = APIRouter(tags=["Chat & History"])
 
@@ -24,8 +25,15 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)):
         .all()
     )
 
+    # Retrieve RAG context from uploaded medical documents (if any)
+    # Gracefully degrade to non-RAG if the vector store is unreachable
     try:
-        ai_response = get_ai_response(history, request.message)
+        rag_context = get_rag_context(request.message)
+    except Exception:
+        rag_context = None  # fall back to standard Dr. Aria response
+
+    try:
+        ai_response = get_ai_response(history, request.message, rag_context=rag_context)
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"AI service error: {str(e)}")
 
