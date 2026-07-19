@@ -5,129 +5,87 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat&logo=postgresql&logoColor=white)
 ![LangChain](https://img.shields.io/badge/LangChain-000000?style=flat&logo=chainlink&logoColor=white)
 
-> Meet **Dr. Aria** — a warm, friendly AI medical assistant who remembers every patient's full conversation history.
+> Meet **Dr. Aria** — a warm, friendly AI medical assistant with authenticated, per-patient chat sessions, document-grounded answers (RAG), and AI-generated insights.
 
 > ⚠️ *For informational purposes only. Always consult a real doctor for medical decisions.*
+
+A React frontend for this API is available separately see [medical-chatbot-frontend](../medical-chatbot-frontend).
 
 ---
 
 ## ⚙️ Setup with `uv`
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/YourUsername/medical-chatbot.git
+git clone <this-repo-url>
 cd medical-chatbot
 
-# 2. Install dependencies
 uv sync
 
-# 3. Configure environment variables
 cp .env.example .env
-# Edit .env and set your PostgreSQL credentials
+# Edit .env — see Environment Variables below
 
-# 4. Create the PostgreSQL database
 psql -U postgres -c "CREATE DATABASE medical_chatbot;"
 
-# 5. Run the server
 uv run uvicorn main:app --reload --port 8000
 ```
 
-Open **http://localhost:8000/docs** for the full interactive Swagger UI.
+Open **http://localhost:8000/docs** for the full interactive Swagger UI (supports pasting a Bearer token via the Authorize button for testing protected routes).
 
 ---
 
-## 📡 All Endpoints
+## 🔐 Authentication
+
+All patient data endpoints require a JWT access token.
+
+1. `POST /users` — sign up (name, email, age, password — password is hashed with bcrypt, never stored in plain text)
+2. `POST /users/login` — log in with email + password, returns `{ access_token, user_id }`
+3. Pass the token on every subsequent request: `Authorization: Bearer <access_token>`
+
+Every protected endpoint checks both that the token is valid **and** that the token's user matches the resource being requested (e.g. you cannot fetch or modify another patient's chat, history, or documents even with a valid token).
+
+---
+
+## 📡 Endpoints
 
 ### 👤 Users
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/users` | Register a new patient |
-| `GET` | `/users` | List all patients |
-| `GET` | `/users/{user_id}` | Get a patient's profile |
-| `DELETE` | `/users/{user_id}` | Delete patient and all history |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/users` | — | Register a new patient |
+| `POST` | `/users/login` | — | Log in, get a JWT |
+| `GET` | `/users/{user_id}` | 🔒 self | Get your own profile |
+| `DELETE` | `/users/{user_id}` | 🔒 self | Delete your own account + all data |
 
-### 💬 Chat
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/chat` | Chat with Dr. Aria (history auto-loaded from PostgreSQL) |
+### 💬 Chat & Conversations
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/chat` | 🔒 | Send a message within a conversation (requires `conversation_id`) |
+| `POST` | `/conversations` | 🔒 | Start a new conversation |
+| `GET` | `/conversations` | 🔒 | List your conversations, newest first |
+| `GET` | `/conversations/{id}/messages` | 🔒 | Get all messages in one conversation |
+| `DELETE` | `/conversations/{id}` | 🔒 | Delete a conversation and all its messages |
+| `DELETE` | `/messages/{message_id}` | 🔒 | Delete a single message |
 
-### 📜 History
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/users/{user_id}/history` | Get full conversation history |
-| `DELETE` | `/users/{user_id}/history` | Clear history (keep account) |
+### 📜 History (legacy full-history view)
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| `GET` | `/users/{user_id}/history` | 🔒 self |
+| `DELETE` | `/users/{user_id}/history` | 🔒 self |
 
 ### 🧠 Smart Analysis
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/users/{user_id}/summarize` | Summarize the medical conversation |
-| `GET` | `/users/{user_id}/symptoms` | Extract all symptoms mentioned |
-| `POST` | `/users/{user_id}/second-opinion` | Get a deeper AI analysis |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/users/{user_id}/summarize` | 🔒 self | Summarize the conversation |
+| `GET` | `/users/{user_id}/symptoms` | 🔒 self | Extract mentioned symptoms |
+| `POST` | `/users/{user_id}/second-opinion` | 🔒 self | Deeper AI analysis |
 
----
+### 📄 Documents (RAG)
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/documents/upload` | 🔒 | Upload a PDF (lab report, prescription, guideline) |
+| `GET` | `/documents` | 🔒 | List your own uploaded documents |
+| `DELETE` | `/documents/{id}` | 🔒 | Delete your own document |
 
-## 🔄 Example Usage
-
-### 1. Register a Patient
-```json
-// POST /users
-{
-  "name": "zainab",
-  "email": "zainab@email.com",
-  "age": 28
-}
-
-// Response 201
-{
-  "id": 3,
-  "name": "zainab",
-  "email": "zainab@email.com",
-  "age": 28,
-  "created_at": "2026-06-17T10:00:00Z"
-}
-```
-
-### 2. Chat with Dr. Aria
-```json
-// POST /chat
-{
-  "user_id": 1,
-  "message": "I have a headache and fever since 2 days"
-}
-
-// Response 200
-{
-  "user_id": 1,
-  "message": "I have a headache and fever since 2 days",
-  "response": "I'm sorry to hear that! A headache with fever lasting 2 days could be due to a viral infection. Please rest, stay hydrated, and monitor your temperature. Are you experiencing any other symptoms like body aches or sore throat?",
-  "turn": 1
-}
-```
-
-### 3. Extract Symptoms
-```json
-// GET /users/1/symptoms
-
-// Response 200
-{
-  "user_id": 3,
-  "username": "zainab",
-  "symptoms_mentioned": "• Headache\n• Fever (since 2 days)"
-}
-```
-
-### 4. Get Second Opinion
-```json
-// POST /users/1/second-opinion
-
-// Response 200
-{
-  "user_id": 3,
-  "username": "zainab",
-  "second_opinion": "Based on your symptoms...\n\n🔍 Possible conditions:\n- Viral fever\n- Flu\n\n🥗 Lifestyle suggestions:\n- Rest and hydrate\n- Light meals\n\n🚨 Go to ER if:\n- Fever crosses 103°F\n- Difficulty breathing",
-  "reminder": "This is AI-generated. Always consult a licensed doctor."
-}
-```
+Documents are private per patient — both the vector store and the metadata tracker tag every chunk/document with the uploading patient's `user_id`, and RAG search is filtered accordingly, so Dr. Aria never surfaces one patient's documents to another.
 
 ---
 
@@ -135,54 +93,54 @@ Open **http://localhost:8000/docs** for the full interactive Swagger UI.
 
 ```
 users
-  id          → Primary key
-  name        → Patient name
-  email       → Unique email
-  age         → Optional age
-  created_at  → Registration time
+  id, name, email, age, hashed_password, created_at
+
+conversations
+  id, user_id → users.id, title, created_at
 
 messages
-  id          → Primary key
-  user_id     → Foreign key → users.id
-  role        → "human" or "ai"
-  content     → Message text
-  created_at  → Message time
+  id, user_id → users.id, conversation_id → conversations.id (nullable, legacy),
+  role ("human" | "ai"), content, created_at
 ```
 
-### 📄 Documents (RAG — Retrieval-Augmented Generation)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/documents/upload` | Upload a PDF (lab report, prescription, guideline) — gets indexed into ChromaDB |
-| `GET` | `/documents` | List all uploaded documents |
-| `DELETE` | `/documents/{id}` | Delete a document and its vector embeddings |
-
-> Dr. Aria automatically searches uploaded documents for relevant context when answering your questions.
+One user → many conversations → many messages. Deleting a user or conversation cascades to delete its dependents.
 
 ---
 
-## 🧠 RAG Architecture
+## 🧠 AI / RAG Architecture
 
 ```
-Uploaded PDF  ──►  PyPDFLoader  ──►  Text Splitter  ──►  Ollama Embeddings ──►  ChromaDB
-                                                                               (chroma_db/)
-                                                                    
-User Question ──►  Similarity Search ──►  Relevant Chunks ──►  Context injected     
-                                                             into Dr. Aria's prompt
+Uploaded PDF  ──►  PyPDFLoader  ──►  Text Splitter  ──►  Ollama Embeddings  ──►  ChromaDB
+                                                          (tagged with user_id)
+
+User Question ──►  Hybrid Search (Vector + BM25, filtered to user_id)  ──►  RRF re-ranking
+                                                                          ──►  Context injected
+                                                                              into Dr. Aria's prompt
 ```
 
-- **Vector DB:** ChromaDB (local, stored in `chroma_db/` folder)
-- **Embeddings:** Ollama `nomic-embed-text` via `http://154.57.212.236:11434`
+- **Chat LLM:** [Groq](https://console.groq.com) (`langchain-groq`, model `llama-3.3-70b-versatile`) — fast, free-tier cloud inference. Swapped in from an initial Ollama-based setup for speed; Ollama config is retained as a fallback (see Environment Variables).
+- **Embeddings:** Ollama `nomic-embed-text` / `qwen3-embedding` (still used for RAG regardless of chat LLM choice)
+- **Vector DB:** ChromaDB (local, `chroma_db/`)
+- **Search:** Hybrid — vector similarity + BM25 keyword search, combined via Reciprocal Rank Fusion
 - **Chunking:** RecursiveCharacterTextSplitter (1000 chars, 200 overlap)
+- **Prompt safety:** user/document text is brace-escaped before insertion into the LangChain prompt template, to prevent crashes from stray `{`/`}` characters in uploaded PDFs
+- **System prompt rules:** stays in medical scope (declines fully unrelated requests, still answers health-adjacent ones like diet questions), only references uploaded documents when relevant, adds a disclaimer when answering from general knowledge, urges emergency care for serious symptoms, never diagnoses definitively, responds warmly and concisely
 
 ---
 
-## 🔧 Configure Environment Variables
+## 🔧 Environment Variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
-| DATABASE_URL | postgresql+psycopg2://postgres:yourpassword@localhost:5432/medical_chatbot | PostgreSQL connection |
-| OLLAMA_BASE_URL | http://your-ollama-server:11434 | Ollama server URL |
-| OLLAMA_MODEL | llama3.1:latest | Model to use |
+|----------|---------|--------------|
+| `DATABASE_URL` | `postgresql+psycopg2://postgres:yourpassword@localhost:5432/medical_chatbot` | PostgreSQL connection |
+| `GROQ_API_KEY` | — | Your Groq API key (get one free at console.groq.com) |
+| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Groq chat model |
+| `OLLAMA_BASE_URL` | — | Ollama server URL (fallback; only used if you switch `ai_service.py` back to `ChatOllama`) |
+| `OLLAMA_MODEL` | `llama3.1:latest` | Ollama model (fallback) |
+
+**JWT settings** (currently hardcoded in `app/utils/security.py`, recommended to move into `.env` before any real deployment):
+- `SECRET_KEY` — signing key for tokens (**must** be changed from the placeholder before production use)
+- Token expiry: 24 hours
 
 ---
 

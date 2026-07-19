@@ -1,5 +1,5 @@
 """
-RAG Service — manages PDF document ingestion, vector storage (ChromaDB),
+RAG Service manages PDF document ingestion, vector storage (ChromaDB),
 and context retrieval for Dr. Aria using HYBRID SEARCH
 (Vector Search + BM25 Keyword Search combined via RRF).
 """
@@ -151,7 +151,7 @@ def _reciprocal_rank_fusion(
 #  Public API
 # ─────────────────────────────────────────────
 
-def ingest_pdf(file_path: str, filename: str) -> dict:
+def ingest_pdf(file_path: str, filename: str, user_id: int) -> dict:
     """Load a PDF, split into chunks, embed, and store in ChromaDB."""
     doc_id = str(uuid.uuid4())
 
@@ -161,6 +161,7 @@ def ingest_pdf(file_path: str, filename: str) -> dict:
     for page in pages:
         page.metadata["doc_id"] = doc_id
         page.metadata["filename"] = filename
+        page.metadata["user_id"] = user_id
 
     chunks = text_splitter.split_documents(pages)
     vector_store.add_documents(chunks)
@@ -171,21 +172,23 @@ def ingest_pdf(file_path: str, filename: str) -> dict:
         "filename": filename,
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
         "chunks": len(chunks),
+        "user_id": user_id,
     })
     _save_metadata(meta)
 
     return {"doc_id": doc_id, "filename": filename, "chunks": len(chunks)}
 
 
-def list_documents() -> list[dict]:
-    """Return a list of all uploaded documents with their metadata."""
-    return _load_metadata()
-
-
-def delete_document(doc_id: str) -> bool:
-    """Delete all vector chunks belonging to a document from ChromaDB."""
+def list_documents(user_id: int) -> list[dict]:
+    """Return uploaded documents belonging to this user only."""
     meta = _load_metadata()
-    found = any(m["doc_id"] == doc_id for m in meta)
+    return [m for m in meta if m.get("user_id") == user_id]
+
+
+def delete_document(doc_id: str, user_id: int) -> bool:
+    """Delete a document, only if it belongs to this user."""
+    meta = _load_metadata()
+    found = any(m["doc_id"] == doc_id and m.get("user_id") == user_id for m in meta)
     if not found:
         return False
 
@@ -195,50 +198,33 @@ def delete_document(doc_id: str) -> bool:
     return True
 
 
-def query_documents(query: str, k: int = 5) -> list[Document]:
-    """
-    HYBRID SEARCH — combines Vector Search + BM25 Keyword Search.
-    
-    Flow:
-    1. Vector search  → finds semantically similar chunks (meaning-based)
-    2. BM25 search    → finds exact keyword matches (word-based)
-    3. RRF fusion     → combines and re-ranks both results
-    4. Returns best combined results
-    """
-    # Step 1 — Vector search (semantic similarity)
-    vector_results = vector_store.similarity_search(query, k=k * 2)
-
-    # Step 2 — BM25 keyword search on the same documents
+def query_documents(query: str, user_id: int, k: int = 5) -> list[Document]:
+    """HYBRID SEARCH — scoped to this user's own documents only."""
+    vector_results = vector_store.similarity_search(query, k=k * 2, filter={"user_id": user_id})
     keyword_results = _bm25_search(query, vector_results, k=k * 2)
 
-    # Step 3 — Combine with RRF
     if keyword_results:
         combined = _reciprocal_rank_fusion(vector_results, keyword_results)
     else:
         combined = vector_results
 
-    # Step 4 — Return top k results
     return combined[:k]
 
 
-def get_rag_context(query: str, k: int = 5) -> Optional[str]:
-    """Retrieve relevant document context using HYBRID SEARCH.
-
-    Returns None if no documents uploaded yet.
-    """
+def get_rag_context(query: str, user_id: int, k: int = 5) -> Optional[str]:
+    """Retrieve context from this user's own documents only. None if they have none uploaded."""
     meta = _load_metadata()
-    if not meta:
+    user_docs = [m for m in meta if m.get("user_id") == user_id]
+    if not user_docs:
         return None
 
-    docs = query_documents(query, k=k)
+    docs = query_documents(query, user_id, k=k)
     if not docs:
         return None
 
     sections = []
     for i, doc in enumerate(docs, 1):
         source = doc.metadata.get("filename", "Unknown")
-        sections.append(
-            f"[Source {i}: {source}]\n{doc.page_content.strip()}"
-        )
+        sections.append(f"[Source {i}: {source}]\n{doc.page_content.strip()}")
 
     return "\n\n---\n\n".join(sections)

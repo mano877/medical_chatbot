@@ -4,13 +4,17 @@ from sqlalchemy.orm import Session
 from app.database.database import get_db, User, Message
 from app.database.schemas import SummaryResponse
 from app.services.ai_service import get_ai_response
+from app.utils.security import get_current_user
 
 router = APIRouter(prefix="/users", tags=["Smart"])
 
 
 @router.post("/{user_id}/summarize", response_model=SummaryResponse)
-def summarize(user_id: int, db: Session = Depends(get_db)):
+def summarize(user_id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user)):
     """Ask Dr. Aria to summarize this user's medical conversation."""
+    if user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="You can only summarize your own conversation.")
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -36,8 +40,11 @@ def summarize(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{user_id}/symptoms")
-def extract_symptoms(user_id: int, db: Session = Depends(get_db)):
+def extract_symptoms(user_id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user)):
     """Ask Dr. Aria to extract all symptoms the user has mentioned."""
+    if user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="You can only view your own symptoms.")
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -63,8 +70,11 @@ def extract_symptoms(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{user_id}/second-opinion")
-def second_opinion(user_id: int, db: Session = Depends(get_db)):
+def second_opinion(user_id: int, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user)):
     """Ask Dr. Aria for a deeper analysis of the conversation."""
+    if user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="You can only request your own second opinion.")
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
