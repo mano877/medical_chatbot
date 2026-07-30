@@ -1,8 +1,11 @@
 import os
 
 # Set test database URL BEFORE importing the app
-TEST_DATABASE_URL = "postgresql+psycopg2://postgres:postgres1b9@localhost:5432/medical_chatbot_test"
-os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+TEST_DATABASE_URL = "postgresql+psycopg2://postgres:YOURPASSWORD@localhost:5432/medical_chatbot_test"
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql+psycopg2://postgres:yourpassword@localhost:5432/medical_chatbot_test"
+)
 
 import pytest
 from fastapi.testclient import TestClient
