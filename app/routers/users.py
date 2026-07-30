@@ -8,7 +8,7 @@ from app.utils.security import hash_password, verify_password, create_access_tok
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
-@router.post("", response_model=UserOut)
+@router.post("", response_model=UserOut, status_code=201)
 def create_user(data: UserCreate, db: Session = Depends(get_db)):
     """Register a new patient/user."""
     existing = db.query(User).filter(User.email == data.email).first()
