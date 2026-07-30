@@ -10,7 +10,7 @@
 
 > ⚠️ *For informational purposes only. Always consult a real doctor for medical decisions.*
 
-A React frontend for this API is available separately — see [medical-chatbot-frontend](../medical-chatbot-frontend).
+A React frontend for this API is available separately — see [medical-chatbot-frontend](https://github.com/mano877/medical-chatbot-fronted).
 
 ---
 

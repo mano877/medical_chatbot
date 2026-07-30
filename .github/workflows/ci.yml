@@ -38,10 +38,6 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Run Alembic migrations
-        run: uv run alembic upgrade head
-        env:
-          DATABASE_URL: postgresql://postgres:testpass@localhost:5432/yourproject_test
 
       - name: Run tests
         run: uv run pytest
