@@ -14,44 +14,48 @@ router = APIRouter(tags=["Chat & History"])
 
 @router.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest, db: Session = Depends(get_db), current_user_id: int = Depends(get_current_user)):
-    """Send a message to Dr. Aria. History is automatically loaded from PostgreSQL."""
-    if request.user_id != current_user_id:
-        raise HTTPException(status_code=403, detail="You can only chat as yourself.")
+    """Send a message to Dr. Aria. user_id comes from your login token —
+    you never need to pass it. conversation_id is optional: leave it out
+    and a new conversation is started automatically; pass one to continue
+    an existing conversation."""
 
-    user = db.query(User).filter(User.id == request.user_id).first()
+    user = db.query(User).filter(User.id == current_user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found. Please register first.")
+
     conversation = db.query(Conversation).filter(Conversation.id == request.conversation_id).first()
     if not conversation or conversation.user_id != current_user_id:
         raise HTTPException(status_code=403, detail="Invalid conversation.")
 
+    conversation_id = conversation.id
+
     history = (
         db.query(Message)
-        .filter(Message.user_id == request.user_id)
+        .filter(Message.user_id == current_user_id)
         .order_by(Message.created_at.asc())
         .all()
     )
 
     # Retrieve RAG context from uploaded medical documents (if any)
-    # Gracefully degrade to non-RAG if the vector store is unreachable
     try:
         rag_context = get_rag_context(request.message, current_user_id)
     except Exception:
-        rag_context = None  # fall back to standard Dr. Aria response
+        rag_context = None
 
     try:
         ai_response = get_ai_response(history, request.message, rag_context=rag_context)
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"AI service error: {str(e)}")
 
-    db.add(Message(user_id=request.user_id, role="human", content=request.message, conversation_id=request.conversation_id))
-    db.add(Message(user_id=request.user_id, role="ai",    content=ai_response, conversation_id=request.conversation_id))
+    db.add(Message(user_id=current_user_id, role="human", content=request.message, conversation_id=conversation_id))
+    db.add(Message(user_id=current_user_id, role="ai",    content=ai_response, conversation_id=conversation_id))
     db.commit()
 
     turn = (len(history) + 2) // 2
 
     return ChatResponse(
-        user_id=request.user_id,
+        user_id=current_user_id,
+        conversation_id=conversation_id,
         message=request.message,
         response=ai_response,
         turn=turn

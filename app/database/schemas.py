@@ -30,12 +30,13 @@ class UserOut(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    user_id: int
+    
     message: str
-    conversation_id: int
+    conversation_id: Optional[int] = None
 
 class ChatResponse(BaseModel):
-    user_id:  int
+    user_id: int
+    conversation_id: int
     message:  str
     response: str
     turn:     int
@@ -78,6 +79,8 @@ class DocumentOut(BaseModel):
     doc_id: str
     filename: str
     uploaded_at: str
+    chunks: int
+    status: str
 
 
 class DocumentListResponse(BaseModel):

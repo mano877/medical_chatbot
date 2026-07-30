@@ -1,47 +1,63 @@
-# 🏥 Medical Assistant Chatbot API — Dr. Aria
+# 🏥 Medical Assistant Chatbot API Dr. Aria
 
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat&logo=python&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat&logo=postgresql&logoColor=white)
+![Pinecone](https://img.shields.io/badge/Pinecone-000000?style=flat&logo=pinecone&logoColor=white)
 ![LangChain](https://img.shields.io/badge/LangChain-000000?style=flat&logo=chainlink&logoColor=white)
 
-> Meet **Dr. Aria** — a warm, friendly AI medical assistant with authenticated, per-patient chat sessions, document-grounded answers (RAG), and AI-generated insights.
+> Meet **Dr. Aria** a warm, friendly AI medical assistant with authenticated, per-patient chat sessions, document-grounded answers (RAG), and AI-generated insights.
 
 > ⚠️ *For informational purposes only. Always consult a real doctor for medical decisions.*
 
-A React frontend for this API is available separately see [medical-chatbot-frontend](../medical-chatbot-frontend).
+A React frontend for this API is available separately — see [medical-chatbot-frontend](../medical-chatbot-frontend).
 
 ---
 
-## ⚙️ Setup with `uv`
+## 🎥 Demo
+
+![Demo](assets/demo.gif)
+
+*Register → upload a medical PDF → ask Dr. Aria a question grounded in that document.*
+
+---
+
+## 📸 Screenshots
+
+<p align="center">
+  <img src="assets/chat.png" width="45%" />
+  <img src="assets/upload.png" width="45%" />
+</p>
+
+---
+
+## ⚙️ Quick Setup with `uv`
 
 ```bash
-git clone <this-repo-url>
+git clone <https://github.com/mano877/medical_chatbot>
 cd medical-chatbot
 
 uv sync
 
 cp .env.example .env
-# Edit .env — see Environment Variables below
+# Edit .env see Environment Variables below
 
 psql -U postgres -c "CREATE DATABASE medical_chatbot;"
 
-uv run uvicorn main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
 Open **http://localhost:8000/docs** for the full interactive Swagger UI (supports pasting a Bearer token via the Authorize button for testing protected routes).
+
+Running tests: `pytest tests/ -v` (uses an isolated test database see [docs/TESTING.md](docs/TESTING.md))
 
 ---
 
 ## 🔐 Authentication
 
-All patient data endpoints require a JWT access token.
-
-1. `POST /users` — sign up (name, email, age, password — password is hashed with bcrypt, never stored in plain text)
-2. `POST /users/login` — log in with email + password, returns `{ access_token, user_id }`
-3. Pass the token on every subsequent request: `Authorization: Bearer <access_token>`
-
-Every protected endpoint checks both that the token is valid **and** that the token's user matches the resource being requested (e.g. you cannot fetch or modify another patient's chat, history, or documents even with a valid token).
+1. `POST /users` — sign up
+2. `POST /users/login` — log in, get `{ access_token, user_id }`
+3. Pass the token on every request: `Authorization: Bearer <access_token>`
 
 ---
 
@@ -58,14 +74,16 @@ Every protected endpoint checks both that the token is valid **and** that the to
 ### 💬 Chat & Conversations
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/chat` | 🔒 | Send a message within a conversation (requires `conversation_id`) |
-| `POST` | `/conversations` | 🔒 | Start a new conversation |
+| `POST` | `/chat` | 🔒 | Send a message — `{ "message": "...", "conversation_id": <id> }` |
+| `POST` | `/conversations` | 🔒 | Start a new, separate conversation thread |
 | `GET` | `/conversations` | 🔒 | List your conversations, newest first |
 | `GET` | `/conversations/{id}/messages` | 🔒 | Get all messages in one conversation |
 | `DELETE` | `/conversations/{id}` | 🔒 | Delete a conversation and all its messages |
 | `DELETE` | `/messages/{message_id}` | 🔒 | Delete a single message |
 
-### 📜 History (legacy full-history view)
+`user_id` comes from the JWT token — never passed by the client. `conversation_id` is required and must belong to the authenticated user; use `POST /conversations` to create one first (e.g. for a "+ New Chat" button), then pass its `id` on every `/chat` call for that thread.
+
+### 📜 History
 | Method | Endpoint | Auth |
 |--------|----------|------|
 | `GET` | `/users/{user_id}/history` | 🔒 self |
@@ -81,66 +99,36 @@ Every protected endpoint checks both that the token is valid **and** that the to
 ### 📄 Documents (RAG)
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/documents/upload` | 🔒 | Upload a PDF (lab report, prescription, guideline) |
-| `GET` | `/documents` | 🔒 | List your own uploaded documents |
+| `POST` | `/documents/upload` | 🔒 | Upload a PDF — returns instantly, processes in the background |
+| `GET` | `/documents` | 🔒 | List your documents, with `status` and `chunks` |
 | `DELETE` | `/documents/{id}` | 🔒 | Delete your own document |
 
-Documents are private per patient — both the vector store and the metadata tracker tag every chunk/document with the uploading patient's `user_id`, and RAG search is filtered accordingly, so Dr. Aria never surfaces one patient's documents to another.
-
----
-
-## 🗄️ Database Schema
-
-```
-users
-  id, name, email, age, hashed_password, created_at
-
-conversations
-  id, user_id → users.id, title, created_at
-
-messages
-  id, user_id → users.id, conversation_id → conversations.id (nullable, legacy),
-  role ("human" | "ai"), content, created_at
-```
-
-One user → many conversations → many messages. Deleting a user or conversation cascades to delete its dependents.
-
----
-
-## 🧠 AI / RAG Architecture
-
-```
-Uploaded PDF  ──►  PyPDFLoader  ──►  Text Splitter  ──►  Ollama Embeddings  ──►  ChromaDB
-                                                          (tagged with user_id)
-
-User Question ──►  Hybrid Search (Vector + BM25, filtered to user_id)  ──►  RRF re-ranking
-                                                                          ──►  Context injected
-                                                                              into Dr. Aria's prompt
-```
-
-- **Chat LLM:** [Groq](https://console.groq.com) (`langchain-groq`, model `llama-3.3-70b-versatile`) — fast, free-tier cloud inference. Swapped in from an initial Ollama-based setup for speed; Ollama config is retained as a fallback (see Environment Variables).
-- **Embeddings:** Ollama `nomic-embed-text` / `qwen3-embedding` (still used for RAG regardless of chat LLM choice)
-- **Vector DB:** ChromaDB (local, `chroma_db/`)
-- **Search:** Hybrid — vector similarity + BM25 keyword search, combined via Reciprocal Rank Fusion
-- **Chunking:** RecursiveCharacterTextSplitter (1000 chars, 200 overlap)
-- **Prompt safety:** user/document text is brace-escaped before insertion into the LangChain prompt template, to prevent crashes from stray `{`/`}` characters in uploaded PDFs
-- **System prompt rules:** stays in medical scope (declines fully unrelated requests, still answers health-adjacent ones like diet questions), only references uploaded documents when relevant, adds a disclaimer when answering from general knowledge, urges emergency care for serious symptoms, never diagnoses definitively, responds warmly and concisely
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full RAG pipeline, database schema, and background processing details.
 
 ---
 
 ## 🔧 Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|--------------|
-| `DATABASE_URL` | `postgresql+psycopg2://postgres:yourpassword@localhost:5432/medical_chatbot` | PostgreSQL connection |
-| `GROQ_API_KEY` | — | Your Groq API key (get one free at console.groq.com) |
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Groq chat model |
-| `OLLAMA_BASE_URL` | — | Ollama server URL (fallback; only used if you switch `ai_service.py` back to `ChatOllama`) |
-| `OLLAMA_MODEL` | `llama3.1:latest` | Ollama model (fallback) |
+| Variable | Description |
+|----------|--------------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `GROQ_API_KEY` | Free key from console.groq.com |
+| `GROQ_MODEL` | Default: `llama-3.3-70b-versatile` |
+| `OLLAMA_BASE_URL` | Ollama server URL (used for embeddings) |
+| `OLLAMA_MODEL` | Default: `llama3.1:latest` |
+| `PINECONE_API_KEY` | Your Pinecone API key |
+| `PINECONE_INDEX_NAME` | Default: `medical-chatbot` |
+| `PINECONE_ENVIRONMENT` | Default: `us-east-1` |
 
-**JWT settings** (currently hardcoded in `app/utils/security.py`, recommended to move into `.env` before any real deployment):
-- `SECRET_KEY` — signing key for tokens (**must** be changed from the placeholder before production use)
-- Token expiry: 24 hours
+Full details, including JWT settings: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#environment-variables)
+
+---
+
+## 📖 More Docs
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) RAG pipeline, database schema, background task design
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) recent engineering changes and why they were made
+- [docs/TESTING.md](docs/TESTING.md) test setup and safety checks
 
 ---
 
