@@ -1,4 +1,4 @@
-# 🏥 Medical Assistant Chatbot API Dr. Aria
+# 🏥 Medical Assistant Chatbot API * Dr. Aria 
 
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat&logo=python&logoColor=white)
@@ -6,11 +6,11 @@
 ![Pinecone](https://img.shields.io/badge/Pinecone-000000?style=flat&logo=pinecone&logoColor=white)
 ![LangChain](https://img.shields.io/badge/LangChain-000000?style=flat&logo=chainlink&logoColor=white)
 
-> Meet **Dr. Aria** a warm, friendly AI medical assistant with authenticated, per-patient chat sessions, document-grounded answers (RAG), and AI-generated insights.
+> Meet **Dr. Aria** A warm, friendly AI medical assistant with authenticated, per-patient chat sessions, document-grounded answers (RAG), and AI-generated insights.
 
 > ⚠️ *For informational purposes only. Always consult a real doctor for medical decisions.*
 
-A React frontend for this API is available separately — see [medical-chatbot-frontend](https://github.com/mano877/medical-chatbot-fronted).
+A React frontend for this API is available separately — see [medical-chatbot-frontend](https://github.com/mano877/medical-chatbot-frontend).
 
 ---
 
@@ -25,8 +25,19 @@ A React frontend for this API is available separately — see [medical-chatbot-f
 ## 📸 Screenshots
 
 <p align="center">
+  <img src="assets/login.png" width="45%" />
+  <img src="assets/greeting.png" width="45%" />
+</p>
+<p align="center">
   <img src="assets/chat.png" width="45%" />
-  <img src="assets/upload.png" width="45%" />
+  <img src="assets/chat_summary.png" width="45%" />
+</p>
+<p align="center">
+  <img src="assets/upload_docs.png" width="45%" />
+  <img src="assets/history.png" width="45%" />
+</p>
+<p align="center">
+  <img src="assets/delete_acc.png" width="45%" />
 </p>
 
 ---
@@ -40,7 +51,7 @@ cd medical-chatbot
 uv sync
 
 cp .env.example .env
-# Edit .env see Environment Variables below
+# Edit .env — see Environment Variables below
 
 psql -U postgres -c "CREATE DATABASE medical_chatbot;"
 
@@ -126,9 +137,9 @@ Full details, including JWT settings: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.m
 
 ## 📖 More Docs
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) RAG pipeline, database schema, background task design
-- [docs/CHANGELOG.md](docs/CHANGELOG.md) recent engineering changes and why they were made
-- [docs/TESTING.md](docs/TESTING.md) test setup and safety checks
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — RAG pipeline, database schema, background task design
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) — recent engineering changes and why they were made
+- [docs/TESTING.md](docs/TESTING.md) — test setup and safety checks
 
 ---
 
