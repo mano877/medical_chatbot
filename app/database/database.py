@@ -104,7 +104,7 @@ class Message(Base):
 
 
 class Document(Base):
-    """Tracks uploaded PDF documents. Actual vectors live in Pinecone —
+    """Tracks uploaded PDF documents. Actual vectors live in Pinecone
     this table just tracks WHICH documents exist, so listing/deleting
     survives server restarts (unlike a local JSON file)."""
     __tablename__ = "documents"

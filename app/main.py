@@ -46,7 +46,7 @@ app.include_router(documents.router)
 def root():
     return {
         "message": "🏥 Medical Assistant Chatbot API is running!",
-        "doctor": "Dr. Aria — Your friendly AI health companion",
+        "doctor": "Dr. Aria Your friendly AI health companion",
         "disclaimer": "For informational purposes only. Always consult a real doctor.",
         "docs": "/docs"
     }
