@@ -51,7 +51,10 @@ settings = Settings()
 # ─────────────────────────────────────────────
 #  SQLAlchemy Setup
 # ─────────────────────────────────────────────
-engine = create_engine(settings.DATABASE_URL, echo=False)
+engine = create_engine(settings.DATABASE_URL, 
+                       echo=False,
+                       pool_pre_ping=True,
+                       pool_recycle=300,)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
